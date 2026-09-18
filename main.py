@@ -1,11 +1,49 @@
-from aiogram import F
+import asyncio
+import logging
+import os
+
+from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode
 from aiogram.filters.command import Command
+from aiogram.types import FSInputFile
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from dotenv import load_dotenv
 
 from all_texts import admin_comm, help_message, start_message, text_log, zvon_schedule
-from other_def import *
+from db_def import (
+    add_admin,
+    disable_notify,
+    enable_notify,
+    get_admin_role,
+    get_all_admins,
+    get_all_users_data,
+    get_all_users_id,
+    get_username_admin,
+    remove_admin_def,
+    remove_user_def,
+)
+from other_def import (
+    back_feedback_keyboard,
+    cancel_keyboard,
+    create_keyboard,
+    download_other_date,
+    download_schedule,
+    evening_schedule_task,
+    get_user_data,
+    login_lvl_1_keyboard,
+    main_keyboard,
+    morning_schedule_task,
+    profile_keyboard,
+    return_keyboard,
+    save_user_data,
+    schedule_keyboard,
+    send_as_text2,
+    send_schedule,
+    validate_and_correct_group,
+    yadisk_client,
+    yes_no_keyboard,
+)
 
 load_dotenv()
 
@@ -226,7 +264,21 @@ async def send_admin_commands(message: types.Message, **kwargs):
     await message.answer(admin_comm)
 
 
-add_admin(, "", ROLE_MAIN_ADMIN, "")
+def bootstrap_main_admin():
+    admin_id = os.getenv("MAIN_ADMIN_ID")
+    if not admin_id:
+        logging.warning("MAIN_ADMIN_ID не задан в .env: главный администратор не назначен.")
+        return
+    try:
+        admin_id = int(admin_id)
+    except ValueError as e:
+        logging.warning(f"TG ID имеет посторонние символы({e}), отличные от допустимых. проверьте .env файл")
+        return
+    add_admin(admin_id, os.getenv("MAIN_ADMIN_NAME", ""), ROLE_MAIN_ADMIN, "system")
+    logging.info(f"Главный администратор {admin_id} назначен.")
+
+
+bootstrap_main_admin()
 
 
 @dp.message(Command("login"))
@@ -492,7 +544,7 @@ async def check_schedule(message: types.Message, **kwargs):
 
 # Функция обработки запроса получения расписания
 @dp.message(lambda message: message.from_user.id in user_states["check_schedule"])
-async def check_schedule(message: types.Message, **kwargs):
+async def handle_schedule_choice(message: types.Message, **kwargs):
     username = message.from_user.username
     user_id = message.from_user.id
     text = message.text

@@ -3,7 +3,7 @@
 Telegram-бот для автоматической рассылки расписания занятий.
 Бот скачивает файлы расписания с Яндекс.Диска, парсит `.docx` и отправляет пользователям расписание в виде файла и удобного текстового сообщения.
 
-**Version 1.01**
+**Version 1.02**
 
 ---
 
@@ -83,6 +83,7 @@ Telegram-бот для автоматической рассылки распи�
 ├── db_def.py          # Работа с базой данных (SQLite)
 ├── all_texts.py       # Тексты сообщений, changelog, расписание звонков
 ├── cache_schedule.py  # Кэш расписаний
+├── .gitignore         # Игнорируемые файлы (.env, db/, log/, schedule/, venv/)
 ├── requirements.txt   # Зависимости
 ├── Dockerfile         # Сборка Docker-образа
 ├── db/                # Базы данных (в gitignore)
@@ -112,10 +113,20 @@ mkdir db log schedule
 ```env
 TELEGRAM_TOKEN=ваш_токен_бота
 YANDEX_TOKEN=ваш_токен_яндекс_диска
+
+# Папка на Яндекс.Диске, где лежит файл расписания (пример: app:/schedule)
+YANDEX_DISK_ROOT=app:/
+# Имя файла расписания на Диске (пример: schedule.docx)
+YANDEX_SCHEDULE_FILENAME=schedule.docx
+
+# Telegram ID главного администратора (берётся у @userinfobot); без него админ не назначится
+MAIN_ADMIN_ID=
+MAIN_ADMIN_NAME=   # опционально: имя админа для базы данных
 ```
 
 > Токен бота получается у [@BotFather](https://t.me/BotFather).
 > Токен Яндекс.Диска — в [кабинете разработчика Яндекса](https://yandex.ru/dev/disk-api/doc/ru/concepts/quickstart#quickstart__oauth).
+> `MAIN_ADMIN_ID` — ваш числовой Telegram ID (можно узнать у бота @userinfobot).
 
 ### 3. Запуск через Docker (рекомендуется)
 
@@ -125,6 +136,8 @@ docker run -d --name dtk-bot --env-file .env -v $(pwd)/db:/app/db -v $(pwd)/log:
 ```
 
 ### 4. Запуск без Docker
+
+Требуется **Python 3.12** (на Python 3.14+ не собираются зависимости `lxml`/`pydantic-core`).
 
 ```bash
 python -m venv venv
@@ -157,15 +170,19 @@ python main.py
 
 ## 📜 Changelog
 
+### v1.02
+- Параметры Яндекс.Диска (`YANDEX_DISK_ROOT`, `YANDEX_SCHEDULE_FILENAME`) вынесены в `.env`
+- Главный администратор назначается через `MAIN_ADMIN_ID` в `.env`
+- Убраны `import *` — вместо них явные импорты
+- Исправлено уведомление о новых файлах расписания (ключ по дате, а не по имени файла)
+
 ### v1.01
 - Исправлена ошибка, из-за которой авторассылка не осуществлялась
 - Добавлено уведомление об отсутствии пользователя в базе данных
 
-[Полный changelog на Telegraph](https://telegra.ph/Devlog-Raspisanie-DTK-v1-03-01)
-
 ---
 
 ## 👨‍💻 Разработка
-Проект защищен лицензией GPL v3
+Проект распространяется по лицензии [GPL v3](LICENSE).
 
 dev: **t.me/@folov3r**

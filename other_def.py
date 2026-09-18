@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import sqlite3
 from datetime import date, timedelta
 
 import yadisk
@@ -10,7 +11,7 @@ from docx import Document
 from dotenv import load_dotenv
 
 from cache_schedule import schedule_cache
-from db_def import *
+from db_def import db_execute, db_fetch, get_all_users_data, get_all_users_id
 
 load_dotenv()
 
@@ -21,6 +22,9 @@ bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
 yadisk_client = yadisk.Client(token=YANDEX_TOKEN)
+
+YANDEX_DISK_ROOT = os.getenv("YANDEX_DISK_ROOT", "app:/")
+YANDEX_SCHEDULE_FILENAME = os.getenv("YANDEX_SCHEDULE_FILENAME", "schedule.docx")
 
 
 def check_and_notify(file_name):
@@ -430,10 +434,10 @@ async def send_notification(chat_id, message):
     await bot.send_message(chat_id, message)
 
 
-async def download_other_date(date: str):
-    target_date = date
-    filename = "file"
-    root_directory = "direcrory"
+async def download_other_date(date_str: str):
+    target_date = date_str
+    filename = YANDEX_SCHEDULE_FILENAME
+    root_directory = YANDEX_DISK_ROOT
 
     def find_file_sync(yadisk, directory, filename):
         for item in yadisk.listdir(directory):
@@ -467,8 +471,8 @@ async def download_other_date(date: str):
 
 async def download_schedule(days_offset: int):
     target_date = (date.today() + timedelta(days=days_offset)).strftime("%d.%m.%Y")
-    filename = "file"
-    root_directory = "directory"
+    filename = YANDEX_SCHEDULE_FILENAME
+    root_directory = YANDEX_DISK_ROOT
 
     def find_file_sync(yadisk, directory, filename):
         for item in yadisk.listdir(directory):
@@ -491,7 +495,7 @@ async def download_schedule(days_offset: int):
             local_path = f"schedule/{target_date}.docx"
             await asyncio.to_thread(download_file_sync, file_path, local_path)
             logging.info(f"Файл на {target_date} скачен из {file_path}")
-            check_and_notify(filename)
+            check_and_notify(f"{target_date}.docx")
         else:
             logging.warning(f"Файла на {target_date} нет")
     except Exception as e:

@@ -1,0 +1,19 @@
+# Секреты
+.env
+AGENTS.md
+ruff.toml
+
+# Папки, создаются при запуске
+db/
+log/
+schedule/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/
