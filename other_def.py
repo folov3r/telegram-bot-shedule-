@@ -433,24 +433,21 @@ async def send_as_text2(message: types.Message, file_name):
 async def send_notification(chat_id, message):
     await bot.send_message(chat_id, message)
 
+def find_file_sync(yadisk, directory, filename):
+    for item in yadisk.listdir(directory):
+        if item["type"] == "dir":
+            found_file = find_file_sync(yadisk, item["path"], filename)
+            if found_file:
+                return found_file
+        elif item["name"] == filename:
+            return item["path"]
+    return None
+
 
 async def download_other_date(date_str: str):
     target_date = date_str
     filename = YANDEX_SCHEDULE_FILENAME
     root_directory = YANDEX_DISK_ROOT
-
-    def find_file_sync(yadisk, directory, filename):
-        for item in yadisk.listdir(directory):
-            if item["type"] == "dir":
-                found_file = find_file_sync(yadisk, item["path"], filename)
-                if found_file:
-                    return found_file
-            elif item["name"] == filename:
-                return item["path"]
-        return None
-
-    def download_file_sync(file_path, local_path):
-        yadisk_client.download(file_path, local_path)
 
     try:
         file_path = await asyncio.to_thread(
@@ -458,7 +455,7 @@ async def download_other_date(date_str: str):
         )
         if file_path:
             local_path = f"schedule/{target_date}.docx"
-            await asyncio.to_thread(download_file_sync, file_path, local_path)
+            await asyncio.to_thread(yadisk_client.download, file_path, local_path)
             logging.info(f"Файл на {target_date} скачен из {file_path}")
             return True  # Файл успешно скачан
         else:
@@ -474,26 +471,13 @@ async def download_schedule(days_offset: int):
     filename = YANDEX_SCHEDULE_FILENAME
     root_directory = YANDEX_DISK_ROOT
 
-    def find_file_sync(yadisk, directory, filename):
-        for item in yadisk.listdir(directory):
-            if item["type"] == "dir":
-                found_file = find_file_sync(yadisk, item["path"], filename)
-                if found_file:
-                    return found_file
-            elif item["name"] == filename:
-                return item["path"]
-        return None
-
-    def download_file_sync(file_path, local_path):
-        yadisk_client.download(file_path, local_path)
-
     try:
         file_path = await asyncio.to_thread(
             find_file_sync, yadisk_client, root_directory, filename
         )
         if file_path:
             local_path = f"schedule/{target_date}.docx"
-            await asyncio.to_thread(download_file_sync, file_path, local_path)
+            await asyncio.to_thread(yadisk_client.download, file_path, local_path)
             logging.info(f"Файл на {target_date} скачен из {file_path}")
             check_and_notify(f"{target_date}.docx")
         else:

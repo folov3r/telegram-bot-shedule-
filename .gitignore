@@ -2,6 +2,7 @@
 .env
 AGENTS.md
 ruff.toml
+TODO.md
 
 # Папки, создаются при запуске
 db/
