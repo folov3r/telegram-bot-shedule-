@@ -3,7 +3,7 @@
 Telegram-бот для автоматической рассылки расписания занятий.
 Бот скачивает файлы расписания с Яндекс.Диска, парсит `.docx` и отправляет пользователям расписание в виде файла и удобного текстового сообщения.
 
-**Version 1.02**
+**Version 1.03**
 
 ---
 
@@ -65,7 +65,7 @@ Telegram-бот для автоматической рассылки распи�
 ## 🛠️ Технологии
 
 - **Python 3.11**
-- [aiogram 3](https://docs.aiogram.dev/) — Telegram Bot API
+- [aiogram 3](https://docs.aiogram.dev/) — Telegram Bot API (диалоги на встроенном FSM: `StatesGroup` + `FSMContext`)
 - [APScheduler](https://apscheduler.readthedocs.io/) — планировщик задач (авторассылка, периодическое скачивание)
 - [yadisk](https://yadisk.readthedocs.io/) — работа с Яндекс.Диском
 - [python-docx](https://python-docx.readthedocs.io/) — парсинг `.docx`
@@ -83,6 +83,7 @@ Telegram-бот для автоматической рассылки распи�
 ├── db_def.py          # Работа с базой данных (SQLite)
 ├── all_texts.py       # Тексты сообщений, changelog, расписание звонков
 ├── cache_schedule.py  # Кэш расписаний
+├── tests/test_fsm.py  # Офлайн-тесты диалогов (без Telegram)
 ├── .gitignore         # Игнорируемые файлы (.env, db/, log/, schedule/, venv/)
 ├── requirements.txt   # Зависимости
 ├── Dockerfile         # Сборка Docker-образа
@@ -169,6 +170,12 @@ python main.py
 ---
 
 ## 📜 Changelog
+
+### v1.03
+- Диалоги переведены с ручных словарей состояний на встроенный FSM aiogram (`StatesGroup` + `FSMContext`) — надёжнее и проще читать
+- Вынесен единый хелпер `format_teacher_schedule` (форматирование текстового расписания преподавателя было продублировано 3 раза)
+- Устранён дубль `find_file_sync` в скачивании файлов
+- Добавлены офлайн-тесты диалогов (`tests/test_fsm.py`): прогон всех FSM-переходов без Telegram API
 
 ### v1.02
 - Параметры Яндекс.Диска (`YANDEX_DISK_ROOT`, `YANDEX_SCHEDULE_FILENAME`) вынесены в `.env`

@@ -2,9 +2,11 @@ import asyncio
 import logging
 import os
 
+from aiogram.fsm.context import FSMContext
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.enums import ParseMode
 from aiogram.filters.command import Command
+from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import FSInputFile
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -65,16 +67,18 @@ logging.getLogger("aiogram").setLevel(logging.WARNING)
 bot = Bot(token=TELEGRAM_TOKEN)
 dp = Dispatcher()
 
-user_states = {
-    "other_date": {},
-    "login": {},
-    "chose_role": {},
-    "update_user_group": {},
-    "delete_user": {},
-    "profile_edit": {},
-    "feedback": {},
-    "check_schedule": {},
-}
+class LoginForm(StatesGroup):
+    choosing_role = State()
+    choosing_value = State()
+
+class ProfileForm(StatesGroup):
+    menu = State()
+    delete_user = State()
+    feedback = State()
+
+class ScheduleForm(StatesGroup):
+    choosing_period = State()
+    choosing_other_date = State()
 
 if yadisk_client.check_token():
     logging.info("Valid API Yandex? True")
@@ -282,12 +286,11 @@ bootstrap_main_admin()
 
 
 @dp.message(Command("login"))
-async def login(message: types.Message, **kwargs):
+async def login(message: types.Message, state: FSMContext, **kwargs):
     user_id = message.from_user.id
     username = message.from_user.username or "No username"
-
-    user_states["login"][user_id] = username
-
+    await state.set_state(LoginForm.choosing_role)
+    await state.update_data(user_id=user_id, username=username)
     role_keyboard = create_keyboard([["Студент", "Преподаватель"]])
     await message.answer(
         "Кто вы?\nСтудент или преподаватель?", reply_markup=role_keyboard
@@ -295,9 +298,8 @@ async def login(message: types.Message, **kwargs):
 
 
 # Получение role от пользователя
-@dp.message(lambda message: message.from_user.id in user_states["login"])
-async def ask_for_value(message: types.Message, **kwargs):
-    user_id = message.from_user.id
+@dp.message(LoginForm.choosing_role)
+async def ask_for_value(message: types.Message, state: FSMContext, **kwargs):
     role = message.text
 
     if role == "Студент":
@@ -305,30 +307,31 @@ async def ask_for_value(message: types.Message, **kwargs):
             "Пожалуйста, введите группу, расписания которой хотите получать.\nЖелательно указывать группу правильно, соблюдая регистр и правильность написания.\nНапример:\n✅ ОП-2 ✅\n❌ оп 2; Оп2; оП-2 ❌",
             reply_markup=return_keyboard,
         )
-        user_states["chose_role"][user_id] = role
-        del user_states["login"][user_id]
+        await state.update_data(role=role)
+        await state.set_state(LoginForm.choosing_value)
     elif role == "Преподаватель":
         await message.answer(
             "Пожалуйста, введите ваше ФИО (например, Иванов И.И.).",
             reply_markup=return_keyboard,
         )
-        user_states["chose_role"][user_id] = role
-        del user_states["login"][user_id]
+        await state.update_data(role=role)
+        await state.set_state(LoginForm.choosing_value)
     else:
         await message.answer("Пожалуйста, используйте на экранные кнопки")
         return
 
 
 # Сохранение value и role для пользователя при login
-@dp.message(lambda message: message.from_user.id in user_states["chose_role"])
-async def save_inform(message: types.Message, **kwargs):
+@dp.message(LoginForm.choosing_value)
+async def save_inform(message: types.Message, state: FSMContext, **kwargs):
     user_id = message.from_user.id
     value = message.text
-    role = user_states["chose_role"][user_id]
+    data = await state.get_data()
+    role = data.get("role")
     username = message.from_user.username
     if value == "Вернуться":
-        del user_states["chose_role"][user_id]
-        await login(message)
+        await state.clear()
+        await login(message, state)
     else:
         if role == "Студент":
             validated_group, is_valid = validate_and_correct_group(value)
@@ -340,7 +343,7 @@ async def save_inform(message: types.Message, **kwargs):
                     f"Вы успешно зарегистрировались. Вы будете получать расписание для группы {validated_group}.",
                     reply_markup=main_keyboard,
                 )
-                del user_states["chose_role"][user_id]
+                await state.clear()
                 logging.info(
                     f"Пользователь {username} зарегистрировался как студент, поприветствуем!"
                 )
@@ -355,7 +358,7 @@ async def save_inform(message: types.Message, **kwargs):
                 f"Вы успешно зарегистрировались. Вы будете получать расписание для преподавателя {value}",
                 reply_markup=main_keyboard,
             )
-            del user_states["chose_role"][user_id]
+            await state.clear()
             logging.info(
                 f"Пользователь {username} зарегистрировался как преподаватель, поприветствуем!"
             )
@@ -366,7 +369,7 @@ profile_messages = {}
 
 # Обработка запроса на получение профиля для пользователя
 @dp.message(F.text == "Профиль")
-async def profile(message: types.Message, **kwargs):
+async def profile(message: types.Message, state: FSMContext, **kwargs):
     user_id = message.from_user.id
     value, is_teacher, notification_enabled = get_user_data(user_id)
     username = message.from_user.username
@@ -396,29 +399,25 @@ async def profile(message: types.Message, **kwargs):
 📩Авто рассылка: {notification_enabled}""",
         reply_markup=profile_keyboard,
     )
-    user_states["profile_edit"][user_id] = username
     profile_messages[user_id] = sent_message.message_id
-
+    await state.set_state(ProfileForm.menu)
 
 # Обработка функций системы профиля
-@dp.message(lambda message: message.from_user.id in user_states["profile_edit"])
-async def edit_profile_user(message: types.Message, **kwargs):
+@dp.message(ProfileForm.menu)
+async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs):
     text_message = message.text
     user_id = message.from_user.id
     value, is_teacher, notifications_enabled = get_user_data(user_id)
-    username = message.from_user.username
     if text_message == "Изменить данные":
         remove_user_def(user_id)
-        del user_states["profile_edit"][user_id]
-        await login(message)
+        await state.clear()
+        await login(message, state)
     elif text_message == "Удалить аккаунт":
-        username = message.from_user.username
-        user_states["delete_user"][user_id] = username
         await message.answer(
             "Вы уверены, что хотите перестать получать расписание?",
             reply_markup=yes_no_keyboard,
         )
-        del user_states["profile_edit"][user_id]
+        await state.set_state(ProfileForm.delete_user)
     elif text_message == "Авто рассылка":
         if notifications_enabled == 1:
             user_id = message.from_user.id
@@ -436,17 +435,16 @@ async def edit_profile_user(message: types.Message, **kwargs):
                 del profile_messages[user_id]
             except Exception as e:
                 logging.error(f"Ошибка удаления сообщения профиля: {e}")
-        await profile(message)
+        await profile(message, state)
     elif text_message == "Обратная связь":
-        del user_states["profile_edit"][user_id]
         await message.answer(
             "Напишите отзыв или жалобу по поводу работы бота, мы его отправим главному администратору:",
             reply_markup=back_feedback_keyboard,
         )
-        user_states["feedback"][user_id] = username
+        await state.set_state(ProfileForm.feedback)
     elif text_message == "Вернуться":
         await message.answer("Главное меню:", reply_markup=main_keyboard)
-        del user_states["profile_edit"][user_id]
+        await state.clear()
     else:
         await message.answer(
             "Пожалуйста, используйте кнопки, которые вы видите на экране",
@@ -458,26 +456,24 @@ async def edit_profile_user(message: types.Message, **kwargs):
         logging.error(f"Ошибка удаления сообщения пользователя: {e}")
 
 
-# Обработка отправки отзыва глав админу (указан id глав админа folov3r, на данный момент)
-@dp.message(lambda message: message.from_user.id in user_states["feedback"])
-async def process_feedback(message: types.Message):
-    user_id = message.from_user.id
+# Обработка отправки отзыва глав админу
+@dp.message(ProfileForm.feedback)
+async def process_feedback(message: types.Message, state: FSMContext):
     username = message.from_user.username
     feedback = message.text
     if feedback == "Вернуться на главную":
-        del user_states["feedback"][user_id]
         await message.answer("Главная:", reply_markup=main_keyboard)
     else:
         await bot.send_message(
             chat_id=6142823280, text=f"Обратная связь от @{username}:\n\n{feedback}"
         )
         await message.answer("Спасибо за обратную связь!", reply_markup=main_keyboard)
-        del user_states["feedback"][user_id]
+    await state.clear()
 
 
 # Обработка запроса на удаление данных из бд
-@dp.message(lambda message: message.from_user.id in user_states["delete_user"])
-async def delete_conf_def(message: types.Message, **kwargs):
+@dp.message(ProfileForm.delete_user)
+async def delete_conf_def(message: types.Message, state: FSMContext, **kwargs):
     text = message.text
     user_id = message.from_user.id
     if text == "Да":
@@ -489,7 +485,7 @@ async def delete_conf_def(message: types.Message, **kwargs):
     else:
         await message.answer("Спасибо, что вы остались!", reply_markup=main_keyboard)
 
-    del user_states["delete_user"][user_id]
+    await state.clear()
 
 
 @dp.message(Command("start"))
@@ -535,33 +531,29 @@ async def send_change_logs(message: types.Message, **kwargs):
 
 # Получение ботом запроса для получения расписания пользователем на интересующий день
 @dp.message(F.text == "Проверить расписание")
-async def check_schedule(message: types.Message, **kwargs):
-    username = message.from_user.username
-    user_id = message.from_user.id
-    user_states["check_schedule"][user_id] = username
+async def check_schedule(message: types.Message, state: FSMContext, **kwargs):
+    await state.set_state(ScheduleForm.choosing_period)
     await message.reply("Расписание на:", reply_markup=schedule_keyboard)
 
 
 # Функция обработки запроса получения расписания
-@dp.message(lambda message: message.from_user.id in user_states["check_schedule"])
-async def handle_schedule_choice(message: types.Message, **kwargs):
-    username = message.from_user.username
-    user_id = message.from_user.id
+@dp.message(ScheduleForm.choosing_period)
+async def handle_schedule_choice(message: types.Message, state: FSMContext, **kwargs):
     text = message.text
     if text == "Сегодня":
-        del user_states["check_schedule"][user_id]
+        await state.clear()
         await send_schedule(message, days_offset=0, caption="Расписание на сегодня")
         await send_schedule(
             message, days_offset=0, caption="Расписание на сегодня", send_as_text=True
         )
     elif text == "Завтра":
-        del user_states["check_schedule"][user_id]
+        await state.clear()
         await send_schedule(message, days_offset=1, caption="Расписание на завтра")
         await send_schedule(
             message, days_offset=1, caption="Расписание на завтра", send_as_text=True
         )
     elif text == "После завтра":
-        del user_states["check_schedule"][user_id]
+        await state.clear()
         await send_schedule(
             message, days_offset=2, caption="Расписание на после завтра"
         )
@@ -572,13 +564,12 @@ async def handle_schedule_choice(message: types.Message, **kwargs):
             send_as_text=True,
         )
     elif text == "Другая дата":
-        del user_states["check_schedule"][user_id]
-        user_states["other_date"][user_id] = username
+        await state.set_state(ScheduleForm.choosing_other_date)
         await message.answer(
             "Пришлите дату в формате дд.мм.гггг", reply_markup=cancel_keyboard
         )
     elif text == "Отмена":
-        del user_states["check_schedule"][user_id]
+        await state.clear()
         await message.answer("Действие отменено", reply_markup=main_keyboard)
     else:
         await message.answer("Пожалуйста, используйте на экранные кнопки")
@@ -591,15 +582,14 @@ async def schedule_zvon(message: types.Message, **kwargs):
 
 
 # Функция отправки расписания на интересующую дату пользователя
-@dp.message(lambda message: message.from_user.id in user_states["other_date"])
-async def other_data_send(message: types.Message):
-    user_id = message.from_user.id
+@dp.message(ScheduleForm.choosing_other_date)
+async def other_data_send(message: types.Message, state: FSMContext):
     text = message.text
     file_name = f"schedule/{text}.docx"
 
     if text == "Отмена":
         await message.answer("Действие отменено", reply_markup=main_keyboard)
-        del user_states["other_date"][user_id]
+        await state.clear()
         return
 
     await message.answer("🔎Производится поиск расписания, ожидайте...")
@@ -613,7 +603,7 @@ async def other_data_send(message: types.Message):
                 "Вы ввели неправильные данные, либо расписания нет, извините",
                 reply_markup=main_keyboard,
             )
-            del user_states["other_date"][user_id]
+            await state.clear()
             return
     # После скачивания проверяем, появился ли файл на сервере
     if os.path.isfile(file_name):
@@ -635,7 +625,7 @@ async def other_data_send(message: types.Message):
             "Расписание не найдено, извините.", reply_markup=main_keyboard
         )
 
-    del user_states["other_date"][user_id]
+    await state.clear()
 
 
 # Обработка запросов, не предусмотренных обработчиком бота
