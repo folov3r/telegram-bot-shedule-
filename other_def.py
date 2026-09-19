@@ -5,21 +5,17 @@ import sqlite3
 from datetime import date, timedelta
 
 import yadisk
-from aiogram import Bot, Dispatcher, types
+from aiogram import types
 from aiogram.types import FSInputFile
 from docx import Document
 from dotenv import load_dotenv
 
 from cache_schedule import schedule_cache
 from db_def import db_execute, db_fetch, get_all_users_data, get_all_users_id
-
+from loader import bot
 load_dotenv()
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 YANDEX_TOKEN = os.getenv("YANDEX_TOKEN")
-
-bot = Bot(token=TELEGRAM_TOKEN)
-dp = Dispatcher()
 
 yadisk_client = yadisk.Client(token=YANDEX_TOKEN)
 

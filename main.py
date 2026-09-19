@@ -3,7 +3,7 @@ import logging
 import os
 
 from aiogram.fsm.context import FSMContext
-from aiogram import Bot, Dispatcher, F, types
+from aiogram import F, types
 from aiogram.enums import ParseMode
 from aiogram.filters.command import Command
 from aiogram.fsm.state import StatesGroup, State
@@ -46,10 +46,11 @@ from other_def import (
     yadisk_client,
     yes_no_keyboard,
 )
+from loader import bot, dp
+
 
 load_dotenv()
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 YANDEX_TOKEN = os.getenv("YANDEX_TOKEN")
 
 logging.basicConfig(
@@ -64,8 +65,6 @@ logging.basicConfig(
 logging.getLogger("apscheduler").setLevel(logging.WARNING)
 logging.getLogger("aiogram").setLevel(logging.WARNING)
 
-bot = Bot(token=TELEGRAM_TOKEN)
-dp = Dispatcher()
 
 class LoginForm(StatesGroup):
     choosing_role = State()
@@ -287,10 +286,7 @@ bootstrap_main_admin()
 
 @dp.message(Command("login"))
 async def login(message: types.Message, state: FSMContext, **kwargs):
-    user_id = message.from_user.id
-    username = message.from_user.username or "No username"
     await state.set_state(LoginForm.choosing_role)
-    await state.update_data(user_id=user_id, username=username)
     role_keyboard = create_keyboard([["Студент", "Преподаватель"]])
     await message.answer(
         "Кто вы?\nСтудент или преподаватель?", reply_markup=role_keyboard
@@ -464,9 +460,13 @@ async def process_feedback(message: types.Message, state: FSMContext):
     if feedback == "Вернуться на главную":
         await message.answer("Главная:", reply_markup=main_keyboard)
     else:
-        await bot.send_message(
-            chat_id=6142823280, text=f"Обратная связь от @{username}:\n\n{feedback}"
-        )
+        admin_id = int(os.getenv("MAIN_ADMIN_ID"))
+        if not admin_id:
+            await message.answer("Главный администратор не установлен.", reply_markup=main_keyboard)
+        else:
+            await bot.send_message(
+                chat_id=admin_id, text=f"Обратная связь от @{username}:\n\n{feedback}"
+            )
         await message.answer("Спасибо за обратную связь!", reply_markup=main_keyboard)
     await state.clear()
 
@@ -482,9 +482,11 @@ async def delete_conf_def(message: types.Message, state: FSMContext, **kwargs):
             "✅ Вы успешно удалили себя из системы.\nЕсли захотите вернуться, то вы можете повторно зарегистрироваться, нажав кнопку ниже или прописав /login, а также перезапустив бота.\nУдачи, до скорого 👋",
             reply_markup=login_lvl_1_keyboard,
         )
-    else:
+    elif text == "Нет":
         await message.answer("Спасибо, что вы остались!", reply_markup=main_keyboard)
-
+    else:
+        await message.answer("Пожалуйста, ответьте 'Да' или 'Нет' используя кнопки или клавиатуру.", reply_markup=yes_no_keyboard)
+        return
     await state.clear()
 
 
