@@ -161,6 +161,38 @@ yes_no_keyboard = create_keyboard([["Да", "Нет"]])
 back_feedback_keyboard = create_keyboard([["Вернуться на главную"]])
 
 
+def format_teacher_schedule(teacher_schedule_data, teacher_name, date_label):
+    if teacher_name not in teacher_schedule_data:
+        return None
+    all_entries = []
+    for group, entries in teacher_schedule_data[teacher_name].items():
+        for entry in entries.split("\n"):
+            pair_number = int(entry.split("|")[1].split(".")[0])
+            all_entries.append((pair_number, group, entry))
+
+    all_entries.sort(key=lambda x: x[0])
+
+    grouped_entries = []
+    current_group = None
+    current_entries = []
+    for pair_number, group, entry in all_entries:
+        if group == current_group:
+            current_entries.append(entry)
+        else:
+            if current_group:
+                grouped_entries.append((current_group, current_entries))
+            current_group = group
+            current_entries = [entry]
+    if current_group:
+        grouped_entries.append((current_group, current_entries))
+
+    response = f"Ваше расписание {date_label}:\n\n|Пара| |Кабинет|\n\n"
+    for group, entries in grouped_entries:
+        response += f"С группой {group}:\n"
+        response += "\n".join(entries) + "\n\n"
+    return response
+
+
 def process_schedule_file(file_path):
     target_date = file_path.split("/")[-1]
 
@@ -309,38 +341,8 @@ async def send_schedule(
             schedule_data, teacher_schedule_data = process_schedule_file(file_name)
             if schedule_data and teacher_schedule_data:
                 if is_teacher:
-                    if value in teacher_schedule_data:
-                        all_entries = []
-                        for group, entries in teacher_schedule_data[value].items():
-                            for entry in entries.split("\n"):
-                                pair_number = int(entry.split("|")[1].split(".")[0])
-                                all_entries.append((pair_number, group, entry))
-
-                        all_entries.sort(key=lambda x: x[0])
-
-                        grouped_entries = []
-                        current_group = None
-                        current_entries = []
-                        for pair_number, group, entry in all_entries:
-                            if group == current_group:
-                                current_entries.append(entry)
-                            else:
-                                if current_group:
-                                    grouped_entries.append(
-                                        (current_group, current_entries)
-                                    )
-                                current_group = group
-                                current_entries = [entry]
-                        if current_group:
-                            grouped_entries.append((current_group, current_entries))
-
-                        response = (
-                            f"Ваше расписание на {target_date}:\n\n|Пара| |Кабинет|\n\n"
-                        )
-                        for group, entries in grouped_entries:
-                            response += f"С группой {group}:\n"
-                            response += "\n".join(entries) + "\n\n"
-
+                    response = format_teacher_schedule(teacher_schedule_data, value, f"на {target_date}")
+                    if response:
                         await message.answer(response)
                     else:
                         await message.answer("У вас нет пар на этот день.")
@@ -386,34 +388,8 @@ async def send_as_text2(message: types.Message, file_name):
             return
 
         if is_teacher:
-            if value in teacher_schedule_data:
-                all_entries = []
-                for group, entries in teacher_schedule_data[value].items():
-                    for entry in entries.split("\n"):
-                        pair_number = int(entry.split("|")[1].split(".")[0])
-                        all_entries.append((pair_number, group, entry))
-
-                all_entries.sort(key=lambda x: x[0])
-
-                grouped_entries = []
-                current_group = None
-                current_entries = []
-                for pair_number, group, entry in all_entries:
-                    if group == current_group:
-                        current_entries.append(entry)
-                    else:
-                        if current_group:
-                            grouped_entries.append((current_group, current_entries))
-                        current_group = group
-                        current_entries = [entry]
-                if current_group:
-                    grouped_entries.append((current_group, current_entries))
-
-                response = f"Ваше расписание на {target_date}:\n\n |Пара| |Кабинет|\n\n"
-                for group, entries in grouped_entries:
-                    response += f"С группой {group}:\n"
-                    response += "\n".join(entries) + "\n\n"
-
+            response = format_teacher_schedule(teacher_schedule_data, value, f"на {target_date}")
+            if response:
                 await message.answer(response)
             else:
                 await message.answer(
@@ -510,53 +486,20 @@ async def send_schedule_to_all_users(days_offset: int, caption: str):
 
                 # Обрабатываем расписание для текстового вывода
                 schedule_data, teacher_schedule_data = process_schedule_file(file_name)
+                if schedule_data is None or teacher_schedule_data is None:
+                    logging.warning(f"Не удалось обработать расписание на {target_date} для {user_id}")
+                    continue
                 if is_teacher:
                     if value in teacher_schedule_data:
                         # Форматируем расписание для преподавателя
-                        all_entries = []
-                        for group, entries in teacher_schedule_data[value].items():
-                            for entry in entries.split("\n"):
-                                pair_number = (
-                                    entry.split("|")[1].split(".")[0].strip()
-                                )  # Извлекаем номер пары
-                                all_entries.append((int(pair_number), group, entry))
-
-                        # Сортируем все пары по номеру
-                        all_entries.sort(key=lambda x: x[0])
-
-                        # Группируем подряд идущие пары для одной группы, если они идут одновременно
-                        grouped_entries = []
-                        current_group = None
-                        current_entries = []
-                        for pair_number, group, entry in all_entries:
-                            if group == current_group:
-                                # Если группа совпадает с предыдущей, добавляем запись в текущий блок
-                                current_entries.append(entry)
-                            else:
-                                # Если группа другая, создаём новый блок
-                                if current_group:
-                                    grouped_entries.append(
-                                        (current_group, current_entries)
-                                    )
-                                current_group = group
-                                current_entries = [entry]
-                        if current_group:
-                            grouped_entries.append((current_group, current_entries))
-
-                        # Формируем итоговый ответ
-                        response = (
-                            f"Ваше расписание {day_text}:\n\n |Пара| |Кабинет|\n\n"
-                        )
-                        for group, entries in grouped_entries:
-                            response += f"С группой {group}:\n"
-                            response += "\n".join(entries) + "\n\n"
-
-                        await bot.send_message(user_id, response)
-                    else:
-                        await bot.send_message(
-                            user_id,
-                            "Возможно у вас нет пар на этот день. Возможно, произошла ошибка",
-                        )
+                        response = format_teacher_schedule(teacher_schedule_data, value, day_text)
+                        if response:
+                            await bot.send_message(user_id, response)
+                        else:
+                            await bot.send_message(
+                                user_id,
+                                "Возможно у вас нет пар на этот день. Возможно, произошла ошибка",
+                            )
                 else:
                     if value in schedule_data:
                         await bot.send_message(
