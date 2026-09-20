@@ -9,6 +9,7 @@ other_def.yadisk_client.check_token = lambda: False
 other_def.yadisk_client.get_public_files = lambda *a, **k: []
 
 import main
+import admin
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -161,6 +162,22 @@ async def run():
     await main.handle_schedule_choice(msg, state)
     s = await state.get_state()
     check("Отмена в периоде: state сброшен", s is None, s)
+
+    # ---- АДМИН: смоук has_role и роутера ----
+    check("admin_router прикреплён к dp", admin.admin_router.parent_router is main.dp)
+    admin.add_admin(222, "adminuser", 3, "system")
+    try:
+        msg_adm = MockMessage("/list_admins", uid=222)
+        await admin.list_admins(msg_adm)
+        allowed = any("Список администраторов" in a for a in msg_adm.answers)
+        check("админ (role 3) проходит has_role", allowed, msg_adm.answers)
+
+        msg_stranger = MockMessage("/list_admins", uid=111)
+        await admin.list_admins(msg_stranger)
+        denied = any("недостаточно прав" in a for a in msg_stranger.answers)
+        check("не-админ отклоняется has_role", denied, msg_stranger.answers)
+    finally:
+        admin.remove_admin_def(222)
 
     await storage.close()
     print(f"\nRESULT: {passed}/{total}")
