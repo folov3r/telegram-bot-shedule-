@@ -5,13 +5,12 @@ from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
-from db_def import disable_notify, enable_notify, remove_user_def
+from db_def import disable_notify, enable_notify, remove_user_def, get_user_data
 from loader import bot
 from .login import login
 
-from other_def import (
+from util.keyboards import (
     back_feedback_keyboard,
-    get_user_data,
     login_lvl_1_keyboard,
     main_keyboard,
     profile_keyboard,

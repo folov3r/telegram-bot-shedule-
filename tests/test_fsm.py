@@ -4,12 +4,13 @@ import os
 os.environ["TELEGRAM_TOKEN"] = "123456789:FAKETOKEN"
 os.environ["YANDEX_TOKEN"] = "fake"
 
-import other_def
-other_def.yadisk_client.check_token = lambda: False
-other_def.yadisk_client.get_public_files = lambda *a, **k: []
+import util.dispatch as dispatch
+dispatch.yadisk_client.check_token = lambda: False
+dispatch.yadisk_client.get_public_files = lambda *a, **k: []
 
 import main
-from handlers import admin, login, profile, schedule
+import db_def
+from handlers import admin, login, misc, profile, schedule
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -68,10 +69,11 @@ class _SentMessage:
 class FakeBot:
     def __init__(self):
         self.deleted = []
+        self.sent = []
     async def delete_message(self, chat_id, message_id):
         self.deleted.append(message_id)
     async def send_message(self, chat_id, text):
-        pass
+        self.sent.append((chat_id, text))
 
 async def run():
     storage = MemoryStorage()
@@ -103,7 +105,7 @@ async def run():
     msg = MockMessage("Да")
     await profile.delete_conf_def(msg, state)
     s = await state.get_state()
-    removed = other_def.get_user_data(111)[0] is None
+    removed = db_def.get_user_data(111)[0] is None
     check("подтверждение Да: юзер удалён, state сброшен", s is None and removed, (s, removed))
 
     # ---- ПРОФИЛЬ: Авто рассылка тоггл ----
@@ -115,10 +117,10 @@ async def run():
     await login.save_inform(msg, state)
     msg = MockMessage("Профиль")
     await profile.profile(msg, state)
-    before = other_def.get_user_data(111)[2]
+    before = db_def.get_user_data(111)[2]
     msg = MockMessage("Авто рассылка")
     await profile.edit_profile_user(msg, state)
-    after = other_def.get_user_data(111)[2]
+    after = db_def.get_user_data(111)[2]
     check("Авто рассылка переключила уведомления", before != after, (before, after))
     s = await state.get_state()
     check("Авто рассылка вернула меню профиля", s == profile.ProfileForm.menu, s)
@@ -191,6 +193,134 @@ async def run():
         check("не-админ отклоняется has_role", denied, msg_stranger.answers)
     finally:
         admin.remove_admin_def(222)
+
+    # ---- АРХИТЕКТУРА: порядок роутеров и единственный catch-all ----
+    subs = main.dp.sub_routers
+    all_routers = [
+        login.login_router,
+        profile.profile_router,
+        schedule.schedule_router,
+        admin.admin_router,
+        misc.generic_router,
+    ]
+    check("все роутеры подключены к dp", all(r in subs for r in all_routers), len(subs))
+    check("generic_router — последний роутер (catch-all в конце)", subs[-1] is misc.generic_router, subs)
+
+    last_h = misc.generic_router.message.handlers[-1]
+    check("any_mess — последний хендлер generic и без фильтров",
+          last_h.callback.__name__ == "any_mess" and not last_h.filters,
+          last_h.callback.__name__)
+
+    others = [login.login_router, profile.profile_router, schedule.schedule_router, admin.admin_router]
+    bare = [(r, h.callback.__name__) for r in others for h in r.message.handlers if not h.filters]
+    check("catch-all есть только у misc", bare == [], bare)
+
+    # ---- MISC: поведение без состояния ----
+    msg = MockMessage("/start", uid=333)
+    await misc.cmd_start(msg)
+    prompted = any("Вас нет в базе" in a for a in msg.answers)
+    check("cmd_start: незарегистрированный → приглашение к /login", prompted, msg.answers)
+
+    msg = MockMessage("Me")
+    await misc.egg_me(msg)
+    check("пасхалка Me", any("everything for everyone" in a for a in msg.answers), msg.answers)
+
+    msg = MockMessage("проверка")
+    await misc.any_mess(msg)
+    check("any_mess: ловит неизвестное", any("/help" in a for a in msg.answers), msg.answers)
+
+    # ---- РАСПИСАНИЕ: звонки и мусор в периоде ----
+    msg = MockMessage("Расписание звонков")
+    await schedule.schedule_zvon(msg)
+    check("schedule_zvon отдаёт текст", any("Расписание звонков" in a for a in msg.answers), msg.answers)
+
+    msg = MockMessage("Проверить расписание")
+    await schedule.check_schedule(msg, state)
+    msg = MockMessage("чепуха")
+    await schedule.handle_schedule_choice(msg, state)
+    wrn = any("на экранные кнопки" in a for a in msg.answers)
+    s = await state.get_state()
+    check("handle_schedule_choice: мусор → warning, state не сброшен", wrn and s == schedule.ScheduleForm.choosing_period, (wrn, s))
+    await state.clear()
+
+    # ---- LOGIN: неверные данные не ломают FSM ----
+    msg = MockMessage("/login")
+    await login.login(msg, state)
+    msg = MockMessage("мусор")
+    await login.ask_for_value(msg, state)
+    wrn = any("на экранные кнопки" in a for a in msg.answers)
+    s = await state.get_state()
+    check("ask_for_value: мусор → warning, роль не выбрана", wrn and s == login.LoginForm.choosing_role, (wrn, s))
+    msg = MockMessage("Студент")
+    await login.ask_for_value(msg, state)
+    msg = MockMessage("оп2")
+    await login.save_inform(msg, state)
+    wrn = any("Некорректный номер группы" in a for a in msg.answers)
+    s = await state.get_state()
+    check("save_inform: оп2 → ошибка, state в выборе value", wrn and s == login.LoginForm.choosing_value, (wrn, s))
+    msg = MockMessage("ОП-2")
+    await login.save_inform(msg, state)
+    s = await state.get_state()
+    check("save_inform: корректная группа → регистрация", s is None, s)
+
+    # ---- АДМИН: broadcast и list_users (через FakeBot) ----
+    admin.add_admin(222, "adminuser", 3, "system")
+    orig_admin_bot = admin.bot
+    admin.bot = fake
+    try:
+        msg = MockMessage("/broadcast всем привет", uid=222)
+        await admin.broadcast_message(msg)
+        sent = any("Сообщение отправлено" in a for a in msg.answers) and len(fake.sent) > 0
+        check("broadcast: доставил сообщения", sent, (msg.answers, fake.sent))
+
+        msg = MockMessage("/list_users", uid=222)
+        await admin.list_users(msg)
+        listed = any("Зарегистрированных пользователей" in a for a in msg.answers)
+        check("list_users: отдаёт список", listed, msg.answers)
+    finally:
+        admin.bot = orig_admin_bot
+        admin.remove_admin_def(222)
+
+    # ---- ПРОФИЛЬ: ветки delete_conf_def ----
+    msg = MockMessage("Профиль")
+    await profile.profile(msg, state)
+    msg = MockMessage("Удалить аккаунт")
+    await profile.edit_profile_user(msg, state)
+    msg = MockMessage("Нет")
+    await profile.delete_conf_def(msg, state)
+    kept = any("Спасибо, что вы остались" in a for a in msg.answers)
+    s = await state.get_state()
+    check("delete_conf_def: Нет → остался, state сброшен", kept and s is None, (kept, s))
+
+    msg = MockMessage("Профиль")
+    await profile.profile(msg, state)
+    msg = MockMessage("Удалить аккаунт")
+    await profile.edit_profile_user(msg, state)
+    msg = MockMessage("возможно")
+    await profile.delete_conf_def(msg, state)
+    wrn = any("'Да' или 'Нет'" in a for a in msg.answers)
+    s = await state.get_state()
+    check("delete_conf_def: мусор → warning, state не сброшен", wrn and s == profile.ProfileForm.delete_user, (wrn, s))
+    msg = MockMessage("Да")
+    await profile.delete_conf_def(msg, state)
+    s = await state.get_state()
+    check("delete_conf_def: Да после мусора → сброс", s is None, s)
+
+    # ---- ПРОФИЛЬ: отзыв при заданном MAIN_ADMIN_ID ----
+    profile.bot = fake
+    os.environ["MAIN_ADMIN_ID"] = "999"
+    try:
+        msg = MockMessage("Обратная связь")
+        await profile.edit_profile_user(msg, state)
+        msg = MockMessage("Проверка связи")
+        await profile.process_feedback(msg, state)
+        thanks = any("Спасибо за обратную связь" in a for a in msg.answers)
+        sent = any(cid == 999 for cid, _ in fake.sent)
+        s = await state.get_state()
+        check("feedback при MAIN_ADMIN_ID: отправка админу, спасибо, сброс",
+              thanks and sent and s is None, (thanks, sent, s))
+    finally:
+        os.environ.pop("MAIN_ADMIN_ID", None)
 
     await storage.close()
     print(f"\nRESULT: {passed}/{total}")

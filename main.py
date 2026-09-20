@@ -12,7 +12,7 @@ from handlers import (
     schedule_router,
 )
 from loader import bot, dp
-from other_def import download_schedule, evening_schedule_task, morning_schedule_task, yadisk_client
+from util.dispatch import download_schedule, evening_schedule_task, morning_schedule_task, yadisk_client
 
 
 

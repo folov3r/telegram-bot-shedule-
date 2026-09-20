@@ -5,7 +5,7 @@ from aiogram.types import FSInputFile
 
 from all_texts import help_message, start_message, text_log
 from db_def import get_all_users_id
-from other_def import login_lvl_1_keyboard, main_keyboard
+from util.keyboards import login_lvl_1_keyboard, main_keyboard
 
 generic_router = Router()
 

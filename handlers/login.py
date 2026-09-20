@@ -4,14 +4,14 @@ from aiogram import Router, types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-
-from other_def import (
+from db_def import save_user_data
+from util.keyboards import (
     create_keyboard,
     main_keyboard,
     return_keyboard,
-    save_user_data,
-    validate_and_correct_group,
+
 )
+from util.parsing import validate_and_correct_group
 
 class LoginForm(StatesGroup):
     choosing_role = State()

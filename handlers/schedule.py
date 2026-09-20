@@ -7,14 +7,12 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import FSInputFile
 
 from all_texts import zvon_schedule
-from other_def import (
+from util.keyboards import (
     cancel_keyboard,
-    download_other_date,
     main_keyboard,
-    schedule_keyboard,
-    send_as_text2,
-    send_schedule,
+    schedule_keyboard
 )
+from util.dispatch import download_other_date, send_as_text2, send_schedule
 
 schedule_router = Router()
 

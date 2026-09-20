@@ -100,3 +100,23 @@ def enable_notify(user_id):
 
 def disable_notify(user_id):
     db_execute("users", "UPDATE users SET notifications_enabled = 0 WHERE user_id = ?", (user_id,))
+
+
+def save_user_data(user_id, username, value, is_teacher=0):
+    db_execute(
+        "users",
+        """
+        INSERT OR REPLACE INTO users (user_id, username, value, is_teacher)
+        VALUES (?, ?, ?, ?)
+    """,
+        (user_id, username, value, is_teacher),
+    )
+
+
+def get_user_data(user_id):
+    result = db_fetch(
+        "users",
+        "SELECT value, is_teacher, notifications_enabled FROM users WHERE user_id = ?",
+        (user_id,),
+    )
+    return result[0] if result else (None, None, None)
