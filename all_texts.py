@@ -1,8 +1,15 @@
 start_message = """Приветствую вас!
 Это бот для <b>рассылки расписания</b> Дзержинского Технического Колледжа 
-version 1.03 """
+version 1.04 """
 
-text_log = """*Changelog version 1.03
+text_log = """*Changelog version 1.04
+1. FSM-состояния переехали в Redis (RedisStorage) — диалоги переживают рестарт бота
+2. Без REDIS_URL бот сам переключается на MemoryStorage
+3. other_def.py разобран на пакет util/ (keyboards, parsing, dispatch)
+4. Хелперы юзеров переехали в db_def
+5. requirements.txt — только прямые зависимости
+
+*Changelog version 1.03
 1. Диалоги переведены на FSM (StatesGroup + FSMContext) — стабильнее и проще читать
 2. Обработчики вынесены в пакет handlers с роутерами aiogram
 3. Добавлены офлайн-тесты диалогов
