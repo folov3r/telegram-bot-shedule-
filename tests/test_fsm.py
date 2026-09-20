@@ -9,7 +9,7 @@ other_def.yadisk_client.check_token = lambda: False
 other_def.yadisk_client.get_public_files = lambda *a, **k: []
 
 import main
-import admin
+from handlers import admin, login, profile, schedule
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.storage.base import StorageKey
@@ -80,86 +80,99 @@ async def run():
 
     # ---- ЗАПИСЬ ТЕСТОВОГО СТУДЕНТА ----
     msg = MockMessage("/login")
-    await main.login(msg, state)
+    await login.login(msg, state)
     msg = MockMessage("Студент")
-    await main.ask_for_value(msg, state)
+    await login.ask_for_value(msg, state)
     msg = MockMessage("ОП-2")
-    await main.save_inform(msg, state)
+    await login.save_inform(msg, state)
     check("студент зарегистрирован", (await state.get_state()) is None)
 
     # ---- ПРОФИЛЬ: открытие меню ----
     msg = MockMessage("Профиль")
-    await main.profile(msg, state)
+    await profile.profile(msg, state)
     s = await state.get_state()
-    check("профиль открыл меню", s == main.ProfileForm.menu, s)
+    check("профиль открыл меню", s == profile.ProfileForm.menu, s)
 
     # ---- УДАЛИТЬ АККАУНТ -> подтверждение -> Да ----
     msg = MockMessage("Удалить аккаунт")
     fake = FakeBot()
-    main.bot = fake
-    await main.edit_profile_user(msg, state)
+    profile.bot = fake
+    await profile.edit_profile_user(msg, state)
     s = await state.get_state()
-    check("кнопка Удалить -> delete_user", s == main.ProfileForm.delete_user, s)
+    check("кнопка Удалить -> delete_user", s == profile.ProfileForm.delete_user, s)
     msg = MockMessage("Да")
-    await main.delete_conf_def(msg, state)
+    await profile.delete_conf_def(msg, state)
     s = await state.get_state()
-    removed = main.get_user_data(111)[0] is None
+    removed = other_def.get_user_data(111)[0] is None
     check("подтверждение Да: юзер удалён, state сброшен", s is None and removed, (s, removed))
 
     # ---- ПРОФИЛЬ: Авто рассылка тоггл ----
     msg = MockMessage("/login")
-    await main.login(msg, state)
+    await login.login(msg, state)
     msg = MockMessage("Студент")
-    await main.ask_for_value(msg, state)
+    await login.ask_for_value(msg, state)
     msg = MockMessage("ОП-2")
-    await main.save_inform(msg, state)
+    await login.save_inform(msg, state)
     msg = MockMessage("Профиль")
-    await main.profile(msg, state)
-    before = main.get_user_data(111)[2]
+    await profile.profile(msg, state)
+    before = other_def.get_user_data(111)[2]
     msg = MockMessage("Авто рассылка")
-    await main.edit_profile_user(msg, state)
-    after = main.get_user_data(111)[2]
+    await profile.edit_profile_user(msg, state)
+    after = other_def.get_user_data(111)[2]
     check("Авто рассылка переключила уведомления", before != after, (before, after))
     s = await state.get_state()
-    check("Авто рассылка вернула меню профиля", s == main.ProfileForm.menu, s)
+    check("Авто рассылка вернула меню профиля", s == profile.ProfileForm.menu, s)
 
     # ---- ПРОФИЛЬ: Обратная связь ----
     msg = MockMessage("Обратная связь")
-    await main.edit_profile_user(msg, state)
+    await profile.edit_profile_user(msg, state)
     s = await state.get_state()
-    check("Обратная связь -> state feedback", s == main.ProfileForm.feedback, s)
+    check("Обратная связь -> state feedback", s == profile.ProfileForm.feedback, s)
     msg = MockMessage("Вернуться на главную")
-    await main.process_feedback(msg, state)
+    await profile.process_feedback(msg, state)
     s = await state.get_state()
     check("feedback: выход в главное меню, state сброшен", s is None, s)
 
+    # ---- ПРОФИЛЬ: отправка отзыва без MAIN_ADMIN_ID ----
+    msg = MockMessage("Профиль")
+    await profile.profile(msg, state)
+    msg = MockMessage("Обратная связь")
+    await profile.edit_profile_user(msg, state)
+    msg = MockMessage("Классный бот")
+    await profile.process_feedback(msg, state)
+    not_set = any("не установлен" in a for a in msg.answers)
+    s = await state.get_state()
+    check("feedback без MAIN_ADMIN_ID: не крашится и сбрасывает state", not_set and s is None, (not_set, s))
+    msg = MockMessage("Вернуться на главную")
+    await profile.process_feedback(msg, state)
+
     # ---- ПРОФИЛЬ: Изменить данные -> логин заново ----
     msg = MockMessage("Профиль")
-    await main.profile(msg, state)
+    await profile.profile(msg, state)
     msg = MockMessage("Изменить данные")
-    await main.edit_profile_user(msg, state)
+    await profile.edit_profile_user(msg, state)
     s = await state.get_state()
-    check("Изменить данные -> перешли в выбор роли", s == main.LoginForm.choosing_role, s)
+    check("Изменить данные -> перешли в выбор роли", s == login.LoginForm.choosing_role, s)
 
     # ---- РАСПИСАНИЕ: выбор периода -> другая дата -> отмена ----
     msg = MockMessage("Проверить расписание")
-    await main.check_schedule(msg, state)
+    await schedule.check_schedule(msg, state)
     s = await state.get_state()
-    check("Проверить расписание -> choosing_period", s == main.ScheduleForm.choosing_period, s)
+    check("Проверить расписание -> choosing_period", s == schedule.ScheduleForm.choosing_period, s)
     text = MockMessage("Другая дата")
-    await main.handle_schedule_choice(text, state)
+    await schedule.handle_schedule_choice(text, state)
     s = await state.get_state()
-    check("Другая дата -> choosing_other_date", s == main.ScheduleForm.choosing_other_date, s)
+    check("Другая дата -> choosing_other_date", s == schedule.ScheduleForm.choosing_other_date, s)
     msg = MockMessage("Отмена")
-    await main.other_data_send(msg, state)
+    await schedule.other_data_send(msg, state)
     s = await state.get_state()
     check("Отмена в другой дате: state сброшен", s is None, s)
 
     # ---- РАСПИСАНИЕ: Отмена прямо из периода ----
     msg = MockMessage("Проверить расписание")
-    await main.check_schedule(msg, state)
+    await schedule.check_schedule(msg, state)
     msg = MockMessage("Отмена")
-    await main.handle_schedule_choice(msg, state)
+    await schedule.handle_schedule_choice(msg, state)
     s = await state.get_state()
     check("Отмена в периоде: state сброшен", s is None, s)
 
