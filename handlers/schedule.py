@@ -22,14 +22,14 @@ class ScheduleForm(StatesGroup):
 
 # Получение ботом запроса для получения расписания пользователем на интересующий день
 @schedule_router.message(F.text == "Проверить расписание")
-async def check_schedule(message: types.Message, state: FSMContext, **kwargs):
+async def check_schedule(message: types.Message, state: FSMContext, **kwargs) -> None:
     await state.set_state(ScheduleForm.choosing_period)
     await message.reply("Расписание на:", reply_markup=schedule_keyboard)
 
 
 # Функция обработки запроса получения расписания
 @schedule_router.message(ScheduleForm.choosing_period)
-async def handle_schedule_choice(message: types.Message, state: FSMContext, **kwargs):
+async def handle_schedule_choice(message: types.Message, state: FSMContext, **kwargs) -> None:
     text = message.text
     if text == "Сегодня":
         await state.clear()
@@ -68,13 +68,13 @@ async def handle_schedule_choice(message: types.Message, state: FSMContext, **kw
 
 # Отправка расписания звонков
 @schedule_router.message(F.text == "Расписание звонков")
-async def schedule_zvon(message: types.Message, **kwargs):
+async def schedule_zvon(message: types.Message, **kwargs) -> None:
     await message.answer(f"Расписание звонков:\n\n{zvon_schedule}")
 
 
 # Функция отправки расписания на интересующую дату пользователя
 @schedule_router.message(ScheduleForm.choosing_other_date)
-async def other_data_send(message: types.Message, state: FSMContext):
+async def other_data_send(message: types.Message, state: FSMContext) -> None:
     text = message.text
     file_name = f"schedule/{text}.docx"
 

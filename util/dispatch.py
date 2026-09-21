@@ -23,7 +23,7 @@ YANDEX_DISK_ROOT = os.getenv("YANDEX_DISK_ROOT", "app:/")
 YANDEX_SCHEDULE_FILENAME = os.getenv("YANDEX_SCHEDULE_FILENAME", "schedule.docx")
 
 
-def check_and_notify(file_name):
+def check_and_notify(file_name: str) -> None:
     with sqlite3.connect("db/notifications.db") as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -49,9 +49,7 @@ def check_and_notify(file_name):
             conn.commit()
 
 
-async def send_schedule(
-    message: types.Message, days_offset: int, caption: str, send_as_text: bool = False
-):
+async def send_schedule(message: types.Message, days_offset: int, caption: str, send_as_text: bool = False) -> None:
     target_date = (date.today() + timedelta(days=days_offset)).strftime("%d.%m.%Y")
     file_name = f"schedule/{target_date}.docx"
     user_id = message.from_user.id
@@ -75,7 +73,7 @@ async def send_schedule(
                 await message.answer(
                     "Расписания пока еще нет, извините", reply_markup=main_keyboard
                 )
-        return  # Завершаем выполнение функции
+        return
 
     try:
         if send_as_text:
@@ -111,7 +109,7 @@ async def send_schedule(
         logging.error(f"Ошибка поиска файла: {e}")
 
 
-async def send_as_text2(message: types.Message, file_name):
+async def send_as_text2(message: types.Message, file_name: str) -> None:
     target_date = message.text
     user_id = message.from_user.id
     username = message.from_user.username
@@ -147,13 +145,13 @@ async def send_as_text2(message: types.Message, file_name):
         await message.answer("Извините, расписание не удалось обработать.")
 
 
-async def send_notification(chat_id, message):
+async def send_notification(chat_id: int, message: str) -> None:
     await bot.send_message(chat_id, message)
 
-def find_file_sync(yadisk, directory, filename):
-    for item in yadisk.listdir(directory):
+def find_file_sync(client: yadisk.Client, directory: str, filename: str) -> str | None:
+    for item in client.listdir(directory):
         if item["type"] == "dir":
-            found_file = find_file_sync(yadisk, item["path"], filename)
+            found_file = find_file_sync(client, item["path"], filename)
             if found_file:
                 return found_file
         elif item["name"] == filename:
@@ -161,7 +159,7 @@ def find_file_sync(yadisk, directory, filename):
     return None
 
 
-async def download_other_date(date_str: str):
+async def download_other_date(date_str: str | None) -> bool:
     target_date = date_str
     filename = YANDEX_SCHEDULE_FILENAME
     root_directory = YANDEX_DISK_ROOT
@@ -183,7 +181,7 @@ async def download_other_date(date_str: str):
         return False  # Произошла ошибка
 
 
-async def download_schedule(days_offset: int):
+async def download_schedule(days_offset: int) -> None:
     target_date = (date.today() + timedelta(days=days_offset)).strftime("%d.%m.%Y")
     filename = YANDEX_SCHEDULE_FILENAME
     root_directory = YANDEX_DISK_ROOT
@@ -203,7 +201,7 @@ async def download_schedule(days_offset: int):
         logging.error(f"Ошибка при скачивании файла на {target_date}: {e}")
 
 
-async def send_schedule_to_all_users(days_offset: int, caption: str):
+async def send_schedule_to_all_users(days_offset: int, caption: str) -> None:
     users = get_all_users_data()
     if not users:
         logging.warning("Нет пользователей для рассылки расписания.")
@@ -259,9 +257,9 @@ async def send_schedule_to_all_users(days_offset: int, caption: str):
             continue
 
 
-async def morning_schedule_task():
+async def morning_schedule_task() -> None:
     await send_schedule_to_all_users(days_offset=0, caption="Расписание на сегодня")
 
 
-async def evening_schedule_task():
+async def evening_schedule_task() -> None:
     await send_schedule_to_all_users(days_offset=1, caption="Расписание на завтра")

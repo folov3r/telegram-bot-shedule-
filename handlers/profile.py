@@ -28,7 +28,7 @@ class ProfileForm(StatesGroup):
 
 # Обработка запроса на получение профиля для пользователя
 @profile_router.message(F.text == "Профиль")
-async def profile(message: types.Message, state: FSMContext, **kwargs):
+async def profile(message: types.Message, state: FSMContext, **kwargs) -> None:
     user_id = message.from_user.id
     value, is_teacher, notification_enabled = get_user_data(user_id)
     username = message.from_user.username
@@ -63,7 +63,7 @@ async def profile(message: types.Message, state: FSMContext, **kwargs):
 
 # Обработка функций системы профиля
 @profile_router.message(ProfileForm.menu)
-async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs):
+async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs) -> None:
     text_message = message.text
     user_id = message.from_user.id
     value, is_teacher, notifications_enabled = get_user_data(user_id)
@@ -117,7 +117,7 @@ async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs):
 
 # Обработка отправки отзыва глав админу
 @profile_router.message(ProfileForm.feedback)
-async def process_feedback(message: types.Message, state: FSMContext):
+async def process_feedback(message: types.Message, state: FSMContext) -> None:
     username = message.from_user.username
     feedback = message.text
     if feedback == "Вернуться на главную":
@@ -136,7 +136,7 @@ async def process_feedback(message: types.Message, state: FSMContext):
 
 # Обработка запроса на удаление данных из бд
 @profile_router.message(ProfileForm.delete_user)
-async def delete_conf_def(message: types.Message, state: FSMContext, **kwargs):
+async def delete_conf_def(message: types.Message, state: FSMContext, **kwargs) -> None:
     text = message.text
     user_id = message.from_user.id
     if text == "Да":

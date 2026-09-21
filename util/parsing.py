@@ -54,7 +54,7 @@ allowed_groups = [
     "203",
 ]
 
-def validate_and_correct_group(user_input):
+def validate_and_correct_group(user_input: str) -> tuple[str | None, bool]:
     user_input = user_input.upper()
 
     if user_input in allowed_groups:
@@ -73,7 +73,7 @@ def validate_and_correct_group(user_input):
 
     return None, False
 
-def format_teacher_schedule(teacher_schedule_data, teacher_name, date_label):
+def format_teacher_schedule(teacher_schedule_data: dict, teacher_name: str, date_label: str) -> str | None:
     if teacher_name not in teacher_schedule_data:
         return None
     all_entries = []
@@ -105,7 +105,7 @@ def format_teacher_schedule(teacher_schedule_data, teacher_name, date_label):
     return response
 
 
-def process_schedule_file(file_path):
+def process_schedule_file(file_path: str) -> tuple[dict | None, dict | None]:
     target_date = file_path.split("/")[-1]
 
     if target_date in schedule_cache:
@@ -117,7 +117,7 @@ def process_schedule_file(file_path):
     doc = Document(file_path)
     current_group = None
 
-    def add_schedule_entry(group, pair_number, subject, teacher, room):
+    def add_schedule_entry(group: str, pair_number: str, subject: str, teacher: str | None, room: str | None) -> None:
         if group not in schedule_data:
             schedule_data[group] = []
 

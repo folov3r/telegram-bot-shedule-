@@ -1,7 +1,7 @@
 import sqlite3
 
 
-def init_db(db_name, schema):
+def init_db(db_name: str, schema: str) -> None:
     with sqlite3.connect(f"db/{db_name}.db") as conn:
         cursor = conn.cursor()
         cursor.execute(schema)
@@ -38,21 +38,21 @@ init_db("notifications", """
 """)
 
 
-def db_execute(db_name, query, params=()):
+def db_execute(db_name: str, query: str, params: tuple = ()) -> None:
     with sqlite3.connect(f"db/{db_name}.db") as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
         conn.commit()
 
 
-def db_fetch(db_name, query, params=()):
+def db_fetch(db_name: str, query: str, params: tuple = ()) -> list[tuple]:
     with sqlite3.connect(f"db/{db_name}.db") as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
         return cursor.fetchall()
 
 
-def add_admin(user_id: int, username: str, role: int, who_add: str):
+def add_admin(user_id: int, username: str, role: int, who_add: str) -> None:
     db_execute("admins", """
         INSERT OR REPLACE INTO admins (user_id, username, role, who_add)
         VALUES (?, ?, ?, ?)
@@ -64,45 +64,45 @@ def get_admin_role(user_id: int) -> int:
     return result[0][0] if result else 0
 
 
-def update_admin_role(user_id: int, new_role: int):
+def update_admin_role(user_id: int, new_role: int) -> None:
     db_execute("admins", "UPDATE admins SET role = ? WHERE user_id = ?", (new_role, user_id))
 
 
-def remove_admin_def(user_id: int):
+def remove_admin_def(user_id: int) -> None:
     db_execute("admins", "DELETE FROM admins WHERE user_id = ?", (user_id,))
 
 
-def remove_user_def(user_id: int):
+def remove_user_def(user_id: int) -> None:
     db_execute("users", "DELETE FROM users WHERE user_id = ?", (user_id,))
 
 
-def get_all_admins():
+def get_all_admins() -> list[tuple]:
     return db_fetch("admins", "SELECT user_id, username, role, who_add FROM admins")
 
 
-def get_username_admin(user_id: int):
+def get_username_admin(user_id: int) -> str:
     result = db_fetch("admins", "SELECT username FROM admins WHERE user_id = ?", (user_id,))
-    return result[0][0] if result else 0
+    return result[0][0] if result else ""
 
 
-def get_all_users_id():
+def get_all_users_id() -> list[int]:
     result = db_fetch("users", "SELECT user_id FROM users")
     return [user_id for (user_id,) in result]
 
 
-def get_all_users_data():
+def get_all_users_data() -> list[tuple]:
     return db_fetch("users", "SELECT user_id, username, value, is_teacher, notifications_enabled FROM users")
 
 
-def enable_notify(user_id):
+def enable_notify(user_id: int) -> None:
     db_execute("users", "UPDATE users SET notifications_enabled = 1 WHERE user_id = ?", (user_id,))
 
 
-def disable_notify(user_id):
+def disable_notify(user_id: int) -> None:
     db_execute("users", "UPDATE users SET notifications_enabled = 0 WHERE user_id = ?", (user_id,))
 
 
-def save_user_data(user_id, username, value, is_teacher=0):
+def save_user_data(user_id: int, username: str, value: str, is_teacher: int = 0) -> None:
     db_execute(
         "users",
         """
@@ -113,7 +113,7 @@ def save_user_data(user_id, username, value, is_teacher=0):
     )
 
 
-def get_user_data(user_id):
+def get_user_data(user_id: int) -> tuple[str | None, int | None, int | None]:
     result = db_fetch(
         "users",
         "SELECT value, is_teacher, notifications_enabled FROM users WHERE user_id = ?",

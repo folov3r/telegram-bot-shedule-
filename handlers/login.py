@@ -20,7 +20,7 @@ class LoginForm(StatesGroup):
 login_router = Router()
 
 @login_router.message(Command("login"))
-async def login(message: types.Message, state: FSMContext, **kwargs):
+async def login(message: types.Message, state: FSMContext, **kwargs) -> None:
     await state.set_state(LoginForm.choosing_role)
     role_keyboard = create_keyboard([["Студент", "Преподаватель"]])
     await message.answer(
@@ -29,7 +29,7 @@ async def login(message: types.Message, state: FSMContext, **kwargs):
 
 # Получение role от пользователя
 @login_router.message(LoginForm.choosing_role)
-async def ask_for_value(message: types.Message, state: FSMContext, **kwargs):
+async def ask_for_value(message: types.Message, state: FSMContext, **kwargs) -> None:
     role = message.text
 
     if role == "Студент":
@@ -53,7 +53,7 @@ async def ask_for_value(message: types.Message, state: FSMContext, **kwargs):
 
 # Сохранение value и role для пользователя при login
 @login_router.message(LoginForm.choosing_value)
-async def save_inform(message: types.Message, state: FSMContext, **kwargs):
+async def save_inform(message: types.Message, state: FSMContext, **kwargs) -> None:
     user_id = message.from_user.id
     value = message.text
     data = await state.get_data()

@@ -63,13 +63,13 @@ scheduler.add_job(
 )
 
 
-async def start_scheduler():
+async def start_scheduler() -> None:
     scheduler.start()
     logging.info("Планировщик запущен.")
     logging.info("Бот запущен")
 
 
-async def main():
+async def main() -> None:
     asyncio.create_task(start_scheduler())
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

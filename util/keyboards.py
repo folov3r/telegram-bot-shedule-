@@ -2,7 +2,7 @@ from aiogram import types
 
 
 
-def create_keyboard(buttons):
+def create_keyboard(buttons: list[list[str]]) -> types.ReplyKeyboardMarkup:
     return types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text=btn) for btn in row] for row in buttons],
         resize_keyboard=True,

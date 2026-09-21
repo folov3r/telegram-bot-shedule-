@@ -4,6 +4,7 @@ import os
 from aiogram import Router, types
 from aiogram.filters.command import Command
 from aiogram.types import FSInputFile
+from typing import Callable
 
 from all_texts import admin_comm
 from db_def import (
@@ -19,7 +20,7 @@ ROLE_SECONDARY_ADMIN = 2
 ROLE_MAIN_ADMIN = 3
 
 # Декоратор для проверки роли администрации
-def has_role(required_role: int):
+def has_role(required_role: int) -> Callable:
     def decorator(func):
         async def wrapper(message: types.Message, *args, **kwargs):
             user_id = message.from_user.id
@@ -27,14 +28,12 @@ def has_role(required_role: int):
             if user_role >= required_role:
                 return await func(message, *args, **kwargs)
             await message.answer("У вас недостаточно прав для выполнения этой команды.")
-
         return wrapper
-
     return decorator
 
 @admin_router.message(Command("add_admin"))
 @has_role(ROLE_SECONDARY_ADMIN)
-async def set_role(message: types.Message, **kwargs):
+async def set_role(message: types.Message, **kwargs) -> None:
     try:
         _, user_id, username, role = message.text.split()
         user_id = int(user_id)
@@ -65,7 +64,7 @@ async def set_role(message: types.Message, **kwargs):
 
 @admin_router.message(Command("remove_admin"))
 @has_role(ROLE_SECONDARY_ADMIN)
-async def remove_admin(message: types.Message, **kwargs):
+async def remove_admin(message: types.Message, **kwargs) -> None:
     try:
         _, user_id = message.text.split()
         user_id = int(user_id)
@@ -94,7 +93,7 @@ async def remove_admin(message: types.Message, **kwargs):
 # Отправка списка администраторов
 @admin_router.message(Command("list_admins"))
 @has_role(ROLE_ADMIN)
-async def list_admins(message: types.Message, **kwargs):
+async def list_admins(message: types.Message, **kwargs) -> None:
     admins = get_all_admins()
     if not admins:
         await message.answer("Администраторы не найдены.")
@@ -111,7 +110,7 @@ async def list_admins(message: types.Message, **kwargs):
 # Функция авто рассылки сообщения для всех пользователей в дб users
 @admin_router.message(Command("broadcast"))
 @has_role(ROLE_SECONDARY_ADMIN)
-async def broadcast_message(message: types.Message, **kwargs):
+async def broadcast_message(message: types.Message, **kwargs) -> None:
     try:
         text_to_send = message.text.split(maxsplit=1)[1]
     except IndexError:
@@ -146,7 +145,7 @@ async def broadcast_message(message: types.Message, **kwargs):
 # Получение списка пользователей
 @admin_router.message(Command("list_users"))
 @has_role(ROLE_SECONDARY_ADMIN)
-async def list_users(message: types.Message, **kwargs):
+async def list_users(message: types.Message, **kwargs) -> None:
     users = get_all_users_data()
 
     if not users:
@@ -177,7 +176,7 @@ async def list_users(message: types.Message, **kwargs):
 # Получение логов в виде txt файла
 @admin_router.message(Command("logs_txt"))
 @has_role(ROLE_SECONDARY_ADMIN)
-async def send_logs(message: types.Message, **kwargs):
+async def send_logs(message: types.Message, **kwargs) -> None:
     file_name = "log/log.txt"
     file_from_pc = FSInputFile(file_name)
     await message.answer_document(file_from_pc)
@@ -186,11 +185,11 @@ async def send_logs(message: types.Message, **kwargs):
 # Список команд для администрации
 @admin_router.message(Command("admin"))
 @has_role(ROLE_ADMIN)
-async def send_admin_commands(message: types.Message, **kwargs):
+async def send_admin_commands(message: types.Message, **kwargs) -> None:
     await message.answer(admin_comm)
 
 
-def bootstrap_main_admin():
+def bootstrap_main_admin() -> None:
     admin_id = os.getenv("MAIN_ADMIN_ID")
     if not admin_id:
         logging.warning("MAIN_ADMIN_ID не задан в .env: главный администратор не назначен.")
