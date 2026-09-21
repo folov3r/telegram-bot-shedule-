@@ -12,7 +12,7 @@ from util.keyboards import (
     main_keyboard,
     schedule_keyboard
 )
-from util.dispatch import download_other_date, send_as_text2, send_schedule
+from util.dispatch import download_other_date, send_text_schedule, send_schedule
 
 schedule_router = Router()
 
@@ -77,7 +77,6 @@ async def schedule_zvon(message: types.Message, **kwargs) -> None:
 async def other_data_send(message: types.Message, state: FSMContext) -> None:
     text = message.text
     file_name = f"schedule/{text}.docx"
-
     if text == "Отмена":
         await message.answer("Действие отменено", reply_markup=main_keyboard)
         await state.clear()
@@ -105,7 +104,7 @@ async def other_data_send(message: types.Message, state: FSMContext) -> None:
                 caption=f"Расписание на {text}",
                 reply_markup=main_keyboard,
             )
-            await send_as_text2(message, file_name)
+            await send_text_schedule(message, file_name, f"на {text}")
         except Exception as e:
             logging.error(f"Ошибка при отправке файла: {e}")
             await message.answer(

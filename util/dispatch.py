@@ -49,6 +49,41 @@ def check_and_notify(file_name: str) -> None:
             conn.commit()
 
 
+async def send_text_schedule(message: types.Message, file_name: str, date_label: str) -> None:
+    user_id = message.from_user.id
+    username = message.from_user.username
+    schedule_data, teacher_schedule_data = process_schedule_file(file_name)
+    if schedule_data and teacher_schedule_data:
+        value, is_teacher, _ = get_user_data(user_id)
+
+        if value is None or is_teacher is None:
+            await message.answer(
+                "Чтобы получать расписание в текстовой форме, зарегистрируйтесь, написав /login."
+            )
+            logging.info(
+                f"Пользователь {username} сделал запрос, будучи не зарегистрированным"
+            )
+            return
+
+        if is_teacher:
+            response = format_teacher_schedule(teacher_schedule_data, value, date_label)
+            if response:
+                await message.answer(response)
+            else:
+                await message.answer(
+                    "Судя по файлу, у вас нет пар на этот день. Возможно, произошла ошибка."
+                )
+        else:
+            if value in schedule_data:
+                await message.answer(
+                    f"Расписание для группы {value} на {date_label}:\n\n|Пара| |Преподаватель| |Кабинет|\n\n{schedule_data[value]}"
+                )
+            else:
+                await message.answer("Расписание для вашей группы не найдено.")
+    else:
+        await message.answer("Извините, расписание не удалось обработать.")
+
+
 async def send_schedule(message: types.Message, days_offset: int, caption: str, send_as_text: bool = False) -> None:
     target_date = (date.today() + timedelta(days=days_offset)).strftime("%d.%m.%Y")
     file_name = f"schedule/{target_date}.docx"
@@ -77,23 +112,7 @@ async def send_schedule(message: types.Message, days_offset: int, caption: str, 
 
     try:
         if send_as_text:
-            schedule_data, teacher_schedule_data = process_schedule_file(file_name)
-            if schedule_data and teacher_schedule_data:
-                if is_teacher:
-                    response = format_teacher_schedule(teacher_schedule_data, value, f"на {target_date}")
-                    if response:
-                        await message.answer(response)
-                    else:
-                        await message.answer("У вас нет пар на этот день.")
-                else:
-                    if value in schedule_data:
-                        await message.answer(
-                            f"Расписание для группы {value} на {target_date}:\n\n|Пара| |Преподаватель| |Кабинет|\n\n{schedule_data[value]}"
-                        )
-                    else:
-                        await message.answer("Расписание для вашей группы не найдено.")
-            else:
-                await message.answer("Извините, расписание не удалось обработать.")
+            await send_text_schedule(message, file_name, f"на {target_date}")
         else:
             if os.path.isfile(file_name):
                 file_from_pc = FSInputFile(file_name)
@@ -107,42 +126,6 @@ async def send_schedule(message: types.Message, days_offset: int, caption: str, 
 
     except Exception as e:
         logging.error(f"Ошибка поиска файла: {e}")
-
-
-async def send_as_text2(message: types.Message, file_name: str) -> None:
-    target_date = message.text
-    user_id = message.from_user.id
-    username = message.from_user.username
-    schedule_data, teacher_schedule_data = process_schedule_file(file_name)
-    if schedule_data and teacher_schedule_data:
-        value, is_teacher, _ = get_user_data(user_id)
-
-        if value is None or is_teacher is None:
-            await message.answer(
-                "Чтобы получать расписание в текстовой форме, зарегистрируйтесь, написав /login."
-            )
-            logging.info(
-                f"Пользователь {username} сделал запрос, будучи не зарегистрированным"
-            )
-            return
-
-        if is_teacher:
-            response = format_teacher_schedule(teacher_schedule_data, value, f"на {target_date}")
-            if response:
-                await message.answer(response)
-            else:
-                await message.answer(
-                    "Судя по файлу, у вас нет пар на этот день. Возможно, произошла ошибка."
-                )
-        else:
-            if value in schedule_data:
-                await message.answer(
-                    f"Расписание для группы {value} на {target_date}:\n\n|Пара| |Преподаватель| |Кабинет|\n\n{schedule_data[value]}"
-                )
-            else:
-                await message.answer("Расписание для вашей группы не найдено.")
-    else:
-        await message.answer("Извините, расписание не удалось обработать.")
 
 
 async def send_notification(chat_id: int, message: str) -> None:

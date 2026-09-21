@@ -19,8 +19,6 @@ from util.keyboards import (
 
 profile_router = Router()
 
-profile_messages = {}
-
 class ProfileForm(StatesGroup):
     menu = State()
     delete_user = State()
@@ -58,7 +56,7 @@ async def profile(message: types.Message, state: FSMContext, **kwargs) -> None:
 📩Авто рассылка: {notification_enabled}""",
         reply_markup=profile_keyboard,
     )
-    profile_messages[user_id] = sent_message.message_id
+    await state.update_data(message_id=sent_message.message_id)
     await state.set_state(ProfileForm.menu)
 
 # Обработка функций системы профиля
@@ -86,12 +84,13 @@ async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs) 
             user_id = message.from_user.id
             enable_notify(user_id)
             await message.answer("🔔Уведомления включены🔔")
-        if user_id in profile_messages:
+        data = await state.get_data()
+        old_msg_id = data.get("message_id")
+        if old_msg_id:
             try:
                 await bot.delete_message(
-                    chat_id=user_id, message_id=profile_messages[user_id]
+                    chat_id=user_id, message_id=old_msg_id
                 )
-                del profile_messages[user_id]
             except Exception as e:
                 logging.error(f"Ошибка удаления сообщения профиля: {e}")
         await profile(message, state)
