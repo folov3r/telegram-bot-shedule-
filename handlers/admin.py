@@ -4,7 +4,7 @@ import os
 from aiogram import Router, types
 from aiogram.filters.command import Command
 from aiogram.types import FSInputFile
-from typing import Callable
+from typing import Awaitable, Callable
 
 from all_texts import admin_comm
 from db_def import (
@@ -20,9 +20,9 @@ ROLE_SECONDARY_ADMIN = 2
 ROLE_MAIN_ADMIN = 3
 
 # Декоратор для проверки роли администрации
-def has_role(required_role: int) -> Callable:
-    def decorator(func):
-        async def wrapper(message: types.Message, *args, **kwargs):
+def has_role(required_role: int) -> Callable[..., Callable[..., Awaitable[None]]]:
+    def decorator(func: Callable[..., Awaitable[None]]) -> Callable[..., Awaitable[None]]:
+        async def wrapper(message: types.Message, *args, **kwargs) -> None:
             user_id = message.from_user.id
             user_role = get_admin_role(user_id)
             if user_role >= required_role:
@@ -40,10 +40,10 @@ async def set_role(message: types.Message, **kwargs) -> None:
         role = int(role)
 
         role_admin = get_admin_role(message.from_user.id)
+        if role not in [ROLE_ADMIN, ROLE_SECONDARY_ADMIN, ROLE_MAIN_ADMIN]:
+            await message.answer("Недопустимая роль уровня доступа.")
+            return
         if role_admin >= role:
-            if role not in [ROLE_ADMIN, ROLE_SECONDARY_ADMIN, ROLE_MAIN_ADMIN]:
-                await message.answer("Недопустимая роль уровня доступа.")
-                return
             add_admin(user_id, username, role, message.from_user.username)
             logging.warning(
                 f"Пользователь {message.from_user.username} назначил пользователя {username} администратором с уровнем доступа {role}"
