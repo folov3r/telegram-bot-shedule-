@@ -1,6 +1,8 @@
 import logging
 import os
 
+from all_texts import use_button_msg
+
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -63,7 +65,7 @@ async def handle_schedule_choice(message: types.Message, state: FSMContext, **kw
         await state.clear()
         await message.answer("Действие отменено", reply_markup=main_keyboard)
     else:
-        await message.answer("Пожалуйста, используйте на экранные кнопки")
+        await message.answer(use_button_msg)
 
 
 # Отправка расписания звонков

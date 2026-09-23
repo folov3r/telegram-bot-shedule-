@@ -5,6 +5,7 @@ from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 
+from all_texts import use_button_msg
 from db_def import disable_notify, enable_notify, remove_user_def, get_user_data
 from loader import bot
 from .login import login
@@ -64,7 +65,7 @@ async def profile(message: types.Message, state: FSMContext, **kwargs) -> None:
 async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs) -> None:
     text_message = message.text
     user_id = message.from_user.id
-    value, is_teacher, notifications_enabled = get_user_data(user_id)
+    _, _, notifications_enabled = get_user_data(user_id)
     if text_message == "Изменить данные":
         remove_user_def(user_id)
         await state.clear()
@@ -105,7 +106,7 @@ async def edit_profile_user(message: types.Message,state: FSMContext, **kwargs) 
         await state.clear()
     else:
         await message.answer(
-            "Пожалуйста, используйте кнопки, которые вы видите на экране",
+            use_button_msg,
             reply_markup=profile_keyboard,
         )
     try:

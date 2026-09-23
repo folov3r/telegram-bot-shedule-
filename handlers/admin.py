@@ -38,7 +38,6 @@ async def set_role(message: types.Message, **kwargs) -> None:
         _, user_id, username, role = message.text.split()
         user_id = int(user_id)
         role = int(role)
-        username = str(username)
 
         role_admin = get_admin_role(message.from_user.id)
         if role_admin >= role:

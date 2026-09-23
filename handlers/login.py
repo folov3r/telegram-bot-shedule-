@@ -1,5 +1,7 @@
 import logging
 
+from all_texts import use_button_msg
+
 from aiogram import Router, types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
@@ -47,7 +49,7 @@ async def ask_for_value(message: types.Message, state: FSMContext, **kwargs) -> 
         await state.update_data(role=role)
         await state.set_state(LoginForm.choosing_value)
     else:
-        await message.answer("Пожалуйста, используйте на экранные кнопки")
+        await message.answer(use_button_msg)
         return
 
 

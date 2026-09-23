@@ -38,9 +38,9 @@ logging.getLogger("yadisk").setLevel(logging.WARNING)
 
 # Подключение роутеров
 dp.include_router(login_router)
-dp.include_router(admin_router)
 dp.include_router(profile_router)
 dp.include_router(schedule_router)
+dp.include_router(admin_router)
 dp.include_router(generic_router)
 
 scheduler = AsyncIOScheduler()

@@ -143,7 +143,6 @@ def find_file_sync(client: yadisk.Client, directory: str, filename: str) -> str 
 
 
 async def download_other_date(date_str: str | None) -> bool:
-    target_date = date_str
     filename = YANDEX_SCHEDULE_FILENAME
     root_directory = YANDEX_DISK_ROOT
 
@@ -152,15 +151,15 @@ async def download_other_date(date_str: str | None) -> bool:
             find_file_sync, yadisk_client, root_directory, filename
         )
         if file_path:
-            local_path = f"schedule/{target_date}.docx"
+            local_path = f"schedule/{date_str}.docx"
             await asyncio.to_thread(yadisk_client.download, file_path, local_path)
-            logging.info(f"Файл на {target_date} скачен из {file_path}")
+            logging.info(f"Файл на {date_str} скачен из {file_path}")
             return True  # Файл успешно скачан
         else:
-            logging.warning(f"Файла на {target_date} нет")
+            logging.warning(f"Файла на {date_str} нет")
             return False  # Файл не найден
     except Exception as e:
-        logging.error(f"Ошибка при скачивании файла на {target_date}: {e}")
+        logging.error(f"Ошибка при скачивании файла на {date_str}: {e}")
         return False  # Произошла ошибка
 
 
